@@ -12,20 +12,20 @@ public class ExpressionStateMachine {
     private final List<String> rpn = new ArrayList<>();          // выходная последовательность
     private final StringBuilder element = new StringBuilder();   // текущее число или имя
 
-    private final List<Action> actions = new ArrayList<>();
-    private final Map<State, List<DeltaCell>> matrix;
+    private final List<Action> actions = new ArrayList<>();      // список функций которые выполняет автомат
+    private final Map<State, List<DeltaCell>> matrix;            // таблица действий
 
     public ExpressionStateMachine() {
 
         // ----------- ОПРЕДЕЛЕНИЕ ДЕЙСТВИЙ -----------
 
-        // (1) открывающая скобка '('
+        // (0) открывающая скобка '('
         actions.add(el -> {
             stackOp.push(el);
             stack.push(el);
         });
 
-        // (2) закрывающая скобка ')'
+        // (1) закрывающая скобка ')'
         actions.add(el -> {
             if (stack.isEmpty()) {
                 currentState = State.ERROR;
@@ -42,7 +42,7 @@ public class ExpressionStateMachine {
             if (!stackOp.isEmpty()) stackOp.pop();
         });
 
-        // (3) операторы + * =
+        // (2) операторы + * =
         actions.add(el -> {
             if (element.length() > 0) {
                 rpn.add(element.toString());
@@ -61,7 +61,7 @@ public class ExpressionStateMachine {
             }
         });
 
-        // (4) буквы/цифры/точка/E/e
+        // (3) буквы/цифры/точка/E/e
         actions.add(el -> element.append(el));
 
         // ----------- СОЗДАНИЕ МАТРИЦЫ ДЕЙСТВИЙ -----------
@@ -96,6 +96,20 @@ public class ExpressionStateMachine {
 
         matrixAction[4][10] = actions.get(3); // state _4, symbol e/E
         matrixAction[7][1]  = actions.get(3); // state _7, digit
+
+        // после существующих назначений
+        matrixAction[7][1]  = actions.get(3);
+        // Добавим обработку цифр в состояниях, в которые мы переходим после e и после знака экспоненты
+        matrixAction[8][1]  = actions.get(3);
+        matrixAction[9][1]  = actions.get(3);
+        matrixAction[10][1] = actions.get(3);
+        matrixAction[11][1] = actions.get(3);
+
+        matrixAction[8][9]  = actions.get(3); // '.' в состоянии _8
+        matrixAction[9][9]  = actions.get(3);
+        matrixAction[10][9] = actions.get(3);
+        matrixAction[11][9] = actions.get(3);
+
 
         this.matrix = createMatrix(matrixAction);
     }
@@ -160,15 +174,19 @@ public class ExpressionStateMachine {
     }
 
     public static int getPriority(char symbol) {
-        switch (symbol) {
-            case '=': return 0;
-            case '(':
-            case ')': return 1;
-            case '+': return 2;
-            case '*': return 3;
-            default:
-                throw new IllegalArgumentException("Недопустимый символ: " + symbol);
+        if (symbol == '=') {
+            return 0;
         }
+        if (symbol == '(' || symbol == ')') {
+            return 1;
+        }
+        if (symbol == '+') {
+            return 2;
+        }
+        if (symbol == '*') {
+            return 3;
+        }
+        throw new IllegalArgumentException("Недопустимый символ: " + symbol);
     }
 
     public State getCurrentState() { return currentState; }

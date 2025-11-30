@@ -10,7 +10,6 @@ public class TransitionMatrix {
 
     public static final Map<State, State[]> matrixTransition =
             new HashMap<State, State[]>() {{
-
                 put(State._0, new State[]{State._1, State.ERROR, State._0, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR});
                 put(State._1, new State[]{State._1, State._1, State._2, State._3, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR});
                 put(State._2, new State[]{State.ERROR, State.ERROR, State._2, State._3, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR, State.ERROR});
@@ -26,6 +25,8 @@ public class TransitionMatrix {
             }};
 
     public static int getIndex(char symbol) {
+        // Сначала проверяем экспоненту, затем буквы/цифры/прочее
+        if (Symbols.logarithmicSymbol.contains(symbol)) return 10;
         if (Symbols.letters.contains(symbol)) return 0;
         if (Symbols.digits.contains(symbol)) return 1;
         if (symbol == ' ') return 2;
@@ -36,7 +37,6 @@ public class TransitionMatrix {
         if (symbol == '*') return 7;
         if (symbol == '-') return 8;
         if (symbol == '.') return 9;
-        if (Symbols.logarithmicSymbol.contains(symbol)) return 10;
         if (Symbols.end.contains(symbol)) return 11;
         return -1;
     }

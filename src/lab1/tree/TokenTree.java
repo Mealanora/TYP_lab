@@ -7,10 +7,10 @@ public class TokenTree {
     private TokenTree left, right;
 
     public TokenTree(String oper, int level, String code, TokenTree left, TokenTree right) {
-        this.oper = oper;
-        this.level = level;
-        this.code = code;
-        this.left = left;
+        this.oper = oper;           // строка с токеном
+        this.level = level;         // глубина узла в дереве
+        this.code = code;           // строка сгенеренного кода
+        this.left = left;           // ссылки на левое и правое поддеревья
         this.right = right;
     }
 

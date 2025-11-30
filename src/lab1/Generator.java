@@ -8,7 +8,7 @@ import java.util.*;
 public class Generator {
 
     public String generateTable(List<String> splitExp) {
-        List<String> parameterNames = new ArrayList<>();
+        List<String> parameterNames = new ArrayList<>();        // список имен которые попадут в таблицу
         for (String s : splitExp) {
             if (!"(".equals(s) && !")".equals(s) && !"*".equals(s) && !"+".equals(s) && !"=".equals(s))
                 parameterNames.add(s);
@@ -28,10 +28,10 @@ public class Generator {
     }
 
     public TokenTree generateTree(List<String> rpn) {
-        Stack<TokenTree> stack = new Stack<>();
+        Stack<TokenTree> stack = new Stack<>();         // строим дерево из ОПЗ
 
         for (String token : rpn) {
-            if (Symbols.digits.contains(token.charAt(0)) || Symbols.letters.contains(token.charAt(0))) {
+            if (Symbols.digits.contains(token.charAt(0)) || Symbols.letters.contains(token.charAt(0))) {            // если число или переменная
                 stack.push(new TokenTree(token, 0, "", null, null));
             } else if (Symbols.operation.contains(token.charAt(0)) || Symbols.equal.contains(token.charAt(0))) {
                 TokenTree right = stack.pop();
@@ -40,7 +40,7 @@ public class Generator {
             }
         }
 
-        TokenTree tree = stack.pop();
+        TokenTree tree = stack.pop();                   // корень дерева
         int maxLevel = setLevels(tree);
         invertLevels(tree, maxLevel + 1);
         return tree;
@@ -69,11 +69,11 @@ public class Generator {
         generateUnoptimizedCode(tree.getRight());
         generateUnoptimizedCode(tree.getLeft());
 
-        if (tree.getLevel() == 0 && Symbols.letters.contains(tree.getOper().charAt(0)))
+        if (tree.getLevel() == 0 && Symbols.letters.contains(tree.getOper().charAt(0)))         // лист-переменная
             tree.setCode(tree.getOper());
-        else if (tree.getLevel() == 0 && Symbols.digits.contains(tree.getOper().charAt(0)))
+        else if (tree.getLevel() == 0 && Symbols.digits.contains(tree.getOper().charAt(0)))     // лист-константа
             tree.setCode("=" + tree.getOper());
-        else if (tree.getOper().equals("="))
+        else if (tree.getOper().equals("="))                                                    // присваивание
             tree.setCode(String.format("LOAD\t%s\nSTORE\t%s", tree.getRight().getCode(), tree.getLeft().getCode()));
         else if (tree.getOper().equals("+"))
             tree.setCode(String.format("%s\nSTORE\t$%d\nLOAD\t%s\nADD\t\t$%d",
@@ -85,25 +85,86 @@ public class Generator {
                     tree.getLeft().getCode(), tree.getLevel()));
     }
 
-    public String generateOptimizedCode(String unoptimized) {
-        List<String> lines = new ArrayList<>(Arrays.asList(unoptimized.split("\n")));
-        List<List<String>> code = new ArrayList<>();
+    public static String generateOptimizedCode(String unoptimizedCode) {
+        // Разбиваем на строки
+        String[] splitCode = unoptimizedCode.split("\n");
 
-        for (String line : lines)
-            code.add(new ArrayList<>(Arrays.asList(line.trim().split("\\s+"))));
+        // Преобразуем каждую строку в список токенов
+        LinkedList<List<String>> code = new LinkedList<>();
+        for (String line : splitCode) {
+            line = line.replace("\t", " ").replace("  ", " ");
+            List<String> parts = new ArrayList<>(Arrays.asList(line.split(" ")));
+            code.add(parts);
+        }
 
+        // --- Оптимизация 1: перестановка LOAD <-> ADD ---
         for (int i = 0; i < code.size() - 1; i++) {
+            if (code.get(i).get(0).contains("LOAD") &&
+                    code.get(i + 1).get(0).contains("ADD")) {
+
+                code.get(i).set(0, code.get(i).get(0).replace("LOAD", "ADD"));
+                code.get(i + 1).set(0, code.get(i + 1).get(0).replace("ADD", "LOAD"));
+                Collections.swap(code, i, i + 1);
+            }
+        }
+
+        // --- Оптимизация 2: перестановка LOAD <-> MPY ---
+        for (int i = 0; i < code.size() - 1; i++) {
+            if (code.get(i).get(0).contains("LOAD") &&
+                    code.get(i + 1).get(0).contains("MPY")) {
+
+                code.get(i).set(0, code.get(i).get(0).replace("LOAD", "MPY"));
+                code.get(i + 1).set(0, code.get(i + 1).get(0).replace("MPY", "LOAD"));
+                Collections.swap(code, i, i + 1);
+            }
+        }
+
+        // --- Удаление STORE x → LOAD x подряд ---
+        int i = 0;
+        while (i < code.size() - 1) {
             if (code.get(i).get(0).equals("STORE") &&
                     code.get(i + 1).get(0).equals("LOAD") &&
+                    code.get(i).size() > 1 &&
+                    code.get(i + 1).size() > 1 &&
                     code.get(i).get(1).equals(code.get(i + 1).get(1))) {
+
                 code.remove(i);
                 code.remove(i);
                 i--;
             }
+            i++;
         }
 
+        // --- Оптимизация цепочки LOAD – STORE – LOAD ---
+        i = 0;
+        while (i < code.size() - 2) {
+            if (code.get(i).get(0).equals("LOAD") &&
+                    code.get(i + 1).get(0).equals("STORE") &&
+                    code.get(i + 2).get(0).equals("LOAD")) {
+
+                String box = code.get(i).get(1);
+                String box1 = code.get(i + 1).get(1);
+
+                code.remove(i);
+                code.remove(i);
+
+                for (int j = i; j < code.size(); j++) {
+                    if (code.get(j).size() > 1 && code.get(j).get(1).equals(box1)) {
+                        code.get(j).set(1, box);
+                    }
+                }
+
+                i--;
+            }
+            i++;
+        }
+
+        // Собираем строки обратно
         StringBuilder sb = new StringBuilder();
-        for (List<String> line : code) sb.append(String.join("\t", line)).append("\n");
+        for (List<String> line : code) {
+            sb.append(String.join(" ", line)).append("\n");
+        }
+
         return sb.toString();
     }
 }
